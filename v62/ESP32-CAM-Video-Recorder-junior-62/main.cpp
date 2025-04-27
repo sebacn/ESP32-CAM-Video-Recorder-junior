@@ -57,6 +57,8 @@
 #include "esp_http_server.h"
 #include "esp_camera.h"
 #include "sensor.h"
+#include "utilities.h"
+#include "Arduino.h"
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -131,6 +133,7 @@ bool web_stop = false;
 #define fbs  1 // was 64 -- how many kb of static ram for psram -> sram buffer for sd write
 uint8_t fb_record_static[fbs * 1024 + 20];
 
+/*
 // CAMERA_MODEL_AI_THINKER
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -148,6 +151,7 @@ uint8_t fb_record_static[fbs * 1024 + 20];
 #define VSYNC_GPIO_NUM    25
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
+*/
 
 camera_fb_t * fb_curr = NULL;
 camera_fb_t * fb_next = NULL;
@@ -333,6 +337,8 @@ const int avi_header[AVIOFFSET] PROGMEM = {
   0x76, 0x36, 0x32, 0x20, 0x4C, 0x49, 0x53, 0x54, 0x00, 0x01, 0x0E, 0x00, 0x6D, 0x6F, 0x76, 0x69,
 };
 
+void do_eprom_write();
+void deleteFolderOrFile(const char * val);
 
 //
 // Writes an uint32_t in Big Endian at current file position
@@ -467,8 +473,8 @@ static void config_camera() {
   config.pin_pclk = PCLK_GPIO_NUM;
   config.pin_vsync = VSYNC_GPIO_NUM;
   config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
 
@@ -550,6 +556,7 @@ static void config_camera() {
 
 static esp_err_t init_sdcard()
 {
+  SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
 
   int succ = SD_MMC.begin("/sdcard", true, false, BOARD_MAX_SDMMC_FREQ, 7);
   if (succ) {
@@ -2592,8 +2599,8 @@ void re_index( char * avi_file_name, char * out_file_name) {
   const char * idx_file_name = "/re_idx.tmp"; // "/JamCam0190.0001.idx";
   //const char * out_file_name = "/JamCam0090.0001new.avi";
 
-#define fbs 4 //  how many kb of static ram for psram -> sram buffer for sd write
-  uint8_t fb_faf_static[fbs * 1024 + 20];
+#define fbs4 4 //  how many kb of static ram for psram -> sram buffer for sd write
+  uint8_t fb_faf_static[fbs4 * 1024 + 20];
 
   File avifile = SD_MMC.open(avi_file_name, "r"); // avifile = SD_MMC.open(avi_file_name, "w");
   File idxfile = SD_MMC.open(idx_file_name, "w"); //idxfile = SD_MMC.open("/idx.tmp", "w");
@@ -2743,10 +2750,10 @@ void re_index( char * avi_file_name, char * out_file_name) {
       print_dc_quartet( index_frame_length_rem, outfile);
 
       while (left_to_write > 0) {
-        if (left_to_write > fbs * 1024) {
-          size_t err = avifile.read(fb_faf_static, fbs * 1024);
-          size_t err2 = outfile.write(fb_faf_static, fbs * 1024);
-          left_to_write = left_to_write - fbs * 1024;
+        if (left_to_write > fbs4 * 1024) {
+          size_t err = avifile.read(fb_faf_static, fbs4 * 1024);
+          size_t err2 = outfile.write(fb_faf_static, fbs4 * 1024);
+          left_to_write = left_to_write - fbs4 * 1024;
         } else {
           size_t err = avifile.read(fb_faf_static, left_to_write);
           size_t err2 = outfile.write(fb_faf_static, left_to_write);
