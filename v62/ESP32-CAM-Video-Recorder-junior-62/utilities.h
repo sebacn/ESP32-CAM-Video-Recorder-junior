@@ -22,7 +22,7 @@
 // Pins
 // ===================
 
-/*
+
 #ifdef I2C_SDA
 #undef I2C_SDA
 #endif
@@ -30,7 +30,7 @@
 #ifdef I2C_SCL
 #undef I2C_SCL
 #endif
-*/
+
 
 #if defined(LILYGO_ESP32S3_CAM_PIR_VOICE)
 
@@ -51,10 +51,10 @@
 #define Y3_GPIO_NUM                 (47)
 #define Y2_GPIO_NUM                 (14)
 
-/*
+
 #define I2C_SDA                     (7)
 #define I2C_SCL                     (6)
-*/
+
 #define PIR_INPUT_PIN               (17)
 #define PMU_INPUT_PIN               (2)
 
@@ -77,9 +77,9 @@ GPIO36	CLK	10k pullup
 GPIO35	CMD	10k pullup
 GPIO37	D0	10k pullup
 */
-#define SDMMC_CLK                   (36)
-#define SDMMC_CMD                   (35)
-#define SDMMC_D0                    (37)
+#define SDMMC_CLK                   (46)
+#define SDMMC_CMD                   (45)
+#define SDMMC_D0                    (3)
 
 
 #elif defined(LILYGO_ESP32S3_CAM_SIM7080G)

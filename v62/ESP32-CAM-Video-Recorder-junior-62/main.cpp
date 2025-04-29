@@ -59,6 +59,7 @@
 #include "sensor.h"
 #include "utilities.h"
 #include "Arduino.h"
+#include "power.h"
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -339,6 +340,7 @@ const int avi_header[AVIOFFSET] PROGMEM = {
 
 void do_eprom_write();
 void deleteFolderOrFile(const char * val);
+void getWakeupReason();
 
 //
 // Writes an uint32_t in Big Endian at current file position
@@ -556,9 +558,13 @@ static void config_camera() {
 
 static esp_err_t init_sdcard()
 {
-  SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0);
+  if (!SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_D0))
+  {
+    Serial.println("SDMMC setPins failed!");
+    major_fail();
+  }
 
-  int succ = SD_MMC.begin("/sdcard", true, false, BOARD_MAX_SDMMC_FREQ, 7);
+  int succ = SD_MMC.begin("/sdcard", true, false, BOARD_MAX_SDMMC_FREQ, 7); //BOARD_MAX_SDMMC_FREQ, SDMMC_FREQ_DEFAULT
   if (succ) {
     Serial.printf("SD_MMC Begin: %d\n", succ);
     uint8_t cardType = SD_MMC.cardType();
@@ -3572,16 +3578,30 @@ void delete_old_stuff();
 void setup() {
 
   Serial.begin(115200);
+
+  delay(10000);
+
   Serial.println("\n\n---");
 
-  pinMode(33, OUTPUT);             // little red led on back of chip
-  digitalWrite(33, LOW);           // turn on the red LED on the back of chip
+  getWakeupReason();
 
-  pinMode(4, OUTPUT);               // Blinding Disk-Avtive Light
-  digitalWrite(4, LOW);             // turn off
+  if (psramFound()) {
+      Serial.println("PSRAM is found !");
+  } else {
+      Serial.println("PSRAM not found !");
+  }
 
-  pinMode(12, INPUT_PULLUP);        // pull this down to stop recording
-  pinMode(13, INPUT_PULLUP);        // pull this down switch wifi
+  // Initialize the board power parameters
+  setupPower();
+
+  //pinMode(33, OUTPUT);             // little red led on back of chip
+  //digitalWrite(33, LOW);           // turn on the red LED on the back of chip
+
+  //pinMode(4, OUTPUT);               // Blinding Disk-Avtive Light
+  //digitalWrite(4, LOW);             // turn off
+
+  pinMode(USER_BUTTON_PIN, INPUT_PULLUP);        // pull this down to stop recording
+  //pinMode(13, INPUT_PULLUP);        // pull this down switch wifi
 
   //Serial.setDebugOutput(true);
 
@@ -3740,8 +3760,8 @@ void the_camera_loop (void* pvParameter) {
   print_mem("the_camera_loop");
 
   frame_cnt = 0;
-  start_record_2nd_opinion = digitalRead(12);
-  start_record_1st_opinion = digitalRead(12);
+  start_record_2nd_opinion = digitalRead(USER_BUTTON_PIN);
+  start_record_1st_opinion = digitalRead(USER_BUTTON_PIN);
   start_record = 0;
 
   delay(1000);
@@ -3929,7 +3949,7 @@ void loop() {
     delete_old_stuff();
   }
   start_record_2nd_opinion = start_record_1st_opinion;
-  start_record_1st_opinion = digitalRead(12);
+  start_record_1st_opinion = digitalRead(USER_BUTTON_PIN);
 
   if (do_the_reindex) {
     done_the_reindex = false;
@@ -4065,4 +4085,71 @@ void loop() {
       }
     }
   }
+}
+
+
+void getWakeupReason()
+{
+    esp_sleep_wakeup_cause_t wakeup_reason;
+
+    wakeup_reason = esp_sleep_get_wakeup_cause();
+
+    switch (wakeup_reason) {
+    case ESP_SLEEP_WAKEUP_UNDEFINED:
+        //!< In case of deep sleep, reset was not caused by exit from deep sleep
+        Serial.println("In case of deep sleep, reset was not caused by exit from deep sleep");
+        break;
+    case ESP_SLEEP_WAKEUP_ALL:
+        //!< Not a wakeup cause: used to disable all wakeup sources with esp_sleep_disable_wakeup_source
+        Serial.println("Not a wakeup cause: used to disable all wakeup sources with esp_sleep_disable_wakeup_source");
+        break;
+    case ESP_SLEEP_WAKEUP_EXT0:
+        //!< Wakeup caused by external signal using RTC_IO
+        Serial.println("Wakeup caused by external signal using RTC_IO");
+        break;
+    case ESP_SLEEP_WAKEUP_EXT1:
+        //!< Wakeup caused by external signal using RTC_CNTL
+        Serial.println("Wakeup caused by external signal using RTC_CNTL");
+        break;
+    case ESP_SLEEP_WAKEUP_TIMER:
+        //!< Wakeup caused by timer
+        Serial.println("Wakeup caused by timer");
+        break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD:
+        //!< Wakeup caused by touchpad
+        Serial.println("Wakeup caused by touchpad");
+        break;
+    case ESP_SLEEP_WAKEUP_ULP:
+        //!< Wakeup caused by ULP program
+        Serial.println("Wakeup caused by ULP program");
+        break;
+    case  ESP_SLEEP_WAKEUP_GPIO:
+        //!< Wakeup caused by GPIO (light sleep only)
+        Serial.println("Wakeup caused by GPIO (light sleep only)");
+        break;
+    case ESP_SLEEP_WAKEUP_UART:
+        //!< Wakeup caused by UART (light sleep only)
+        Serial.println("Wakeup caused by UART (light sleep only)");
+        break;
+    case ESP_SLEEP_WAKEUP_WIFI:
+        //!< Wakeup caused by WIFI (light sleep only)
+        Serial.println("Wakeup caused by WIFI (light sleep only)");
+        break;
+    case ESP_SLEEP_WAKEUP_COCPU:
+        //!< Wakeup caused by COCPU int
+        Serial.println("Wakeup caused by COCPU int");
+        break;
+    case ESP_SLEEP_WAKEUP_COCPU_TRAP_TRIG:
+        //!< Wakeup caused by COCPU crash
+        Serial.println("Wakeup caused by COCPU crash");
+        break;
+    case  ESP_SLEEP_WAKEUP_BT:
+        //!< Wakeup caused by BT (light sleep only)
+        Serial.println("Wakeup caused by BT (light sleep only)");
+        break;
+    default :
+        Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
+        break;
+
+    }
 }
